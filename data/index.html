@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 SPI Control</title>
+    <link rel="stylesheet" href="styles.css"> 
+<body>
+  <h1>ESP32 SPI Control</h1>
+
+  <!-- Option 1: Send Byte -->
+  <div>
+    <h2>Send Byte to Slaves</h2>
+    <input type="number" id="byteInput" placeholder="Enter byte (0-255)" min="0" max="255">
+    <button id="toggleButton" onclick="toggleSendByte()">Start Sending</button>
+    <p>Slave 1 Response: <span id="s1m">0</span></p>
+    <p>Slave 2 Response: <span id="s2m">0</span></p>
+  </div>
+
+  <!-- Option 2: Control RGB LED -->
+  <div>
+    <h2>Control RGB LED on Slave 1</h2>
+    <button onclick="setColor('slave1', 'red')">Red</button>
+    <button onclick="setColor('slave1', 'green')">Green</button>
+    <button onclick="setColor('slave1', 'blue')">Blue</button>
+    <button onclick="setColor('slave1', 'off')">Off</button>
+  </div>
+
+  <div>
+    <h2>Control RGB LED on Slave 2</h2>
+    <button onclick="setColor('slave2', 'red')">Red</button>
+    <button onclick="setColor('slave2', 'green')">Green</button>
+    <button onclick="setColor('slave2', 'blue')">Blue</button>
+    <button onclick="setColor('slave2', 'off')">Off</button>
+  </div>
+
+  <!-- Log Area -->
+  <div>
+    <h2>Log</h2>
+    <pre id="log"></pre>
+  </div>
+    <script src="script.js"></script> 
+</body>
+</html>
