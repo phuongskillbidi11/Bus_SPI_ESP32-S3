@@ -1,4 +1,4 @@
-// src/slave2/main.cpp - OPTIMIZED FOR MAXIMUM SPEED
+// src/slave3/main.cpp - OPTIMIZED FOR MAXIMUM SPEED
 #include <Arduino.h>
 #include <driver/spi_slave.h>
 #include <Adafruit_NeoPixel.h>
@@ -16,7 +16,7 @@ Adafruit_NeoPixel pixels(NUM_PIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 // ==================== BUFFERS ====================
 #define BUFFER_SIZE 4
-DRAM_ATTR uint8_t tx_buf[BUFFER_SIZE] = {0xCA, 0xFE, 0x00, 0x00};  // ← SLAVE 2 SIGNATURE
+DRAM_ATTR uint8_t tx_buf[BUFFER_SIZE] = {0xBE, 0xEF, 0x00, 0x00};  // ← SLAVE 3 SIGNATURE
 DRAM_ATTR uint8_t rx_buf[BUFFER_SIZE] = {0};
 
 // ==================== LED STATE ====================
@@ -55,8 +55,8 @@ void spiReceiveTask(void *pvParameters) {
       setLED(rx_buf[0]);
       
       // Update response
-      tx_buf[0] = 0xCA;  // ← SLAVE 2 SIGNATURE
-      tx_buf[1] = 0xFE;  // ← SLAVE 2 SIGNATURE
+      tx_buf[0] = 0xBE;  // ← SLAVE 3 SIGNATURE
+      tx_buf[1] = 0xEF;  // ← SLAVE 3 SIGNATURE
       tx_buf[2] = (counter >> 8) & 0xFF;
       tx_buf[3] = counter & 0xFF;
     }
@@ -68,7 +68,7 @@ void setup() {
   delay(1000);
   
   Serial.println("\n========================================");
-  Serial.println("     ESP32-S3 SPI SLAVE 2");
+  Serial.println("     ESP32-S3 SPI SLAVE 3");
   Serial.println("     OPTIMIZED - 4MHz CAPABLE");
   Serial.println("========================================\n");
   
@@ -104,9 +104,9 @@ void setup() {
     while(1);
   }
   
-  Serial.println("SPI Slave 2 initialized");
+  Serial.println("SPI Slave 3 initialized");
   Serial.printf("CS Pin: GPIO %d\n", HSPI_CS);
-  Serial.println("Signature: 0xCAFE");
+  Serial.println("Signature: 0xBEEF");
   Serial.println("Waiting for Master...\n");
   
   // Create SPI task
@@ -143,7 +143,7 @@ void loop() {
     uint32_t delta = count - last_report_count;
     float rate = (delta * 1000.0) / 5000.0;
     
-    Serial.printf("[SLAVE2] Transactions: %u | Rate: %.2f trans/sec\n", count, rate);
+    Serial.printf("[SLAVE3] Transactions: %u | Rate: %.2f trans/sec\n", count, rate);
     
     last_report_count = count;
     last_report_time = millis();

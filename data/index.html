@@ -1,44 +1,1016 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-bs-theme="auto">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 SPI Control</title>
-    <link rel="stylesheet" href="styles.css"> 
-<body>
-  <h1>ESP32 SPI Control</h1>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ESP32 Motor Control Dashboard</title>
+  
+  <script src="color-modes.js"></script>
+  <link href="lib/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="lib/bootstrap-icons/bootstrap-icons.min.css">
+  
+  <script src="lib/chartjs/chart.umd.js"></script>
+  
+  <link rel="stylesheet" href="style.css">
 
-  <!-- Option 1: Send Byte -->
-  <div>
-    <h2>Send Byte to Slaves</h2>
-    <input type="number" id="byteInput" placeholder="Enter byte (0-255)" min="0" max="255">
-    <button id="toggleButton" onclick="toggleSendByte()">Start Sending</button>
-    <p>Slave 1 Response: <span id="s1m">0</span></p>
-    <p>Slave 2 Response: <span id="s2m">0</span></p>
+  <style>
+    body { height: 100%; }
+    aside {
+      position: fixed;
+      overflow: auto;
+      height: calc(100vh - 12px);
+      justify-content: flex-start;
+      align-self: flex-start;
+    }
+    nav { position: sticky; }
+    main {
+      position: relative;
+      overflow: visible;
+      margin-left: auto;
+      justify-content: flex-end;
+      align-self: flex-end;
+    }
+    #sidebarshow { display: none; }
+    
+    @media screen and (max-width: 575px) {
+      #sidebarshow { display: inline; }
+      #sidebartoggle { display: none; }
+    }
+    
+    /* Soft active menu color */
+    .nav-link.active {
+      background-color: #e7f1ff !important;
+      color: #0056b3 !important;
+      border-left: 3px solid #0056b3;
+    }
+    
+    [data-bs-theme="dark"] .nav-link.active {
+      background-color: #1e3a5f !important;
+      color: #79b8ff !important;
+      border-left: 3px solid #79b8ff;
+    }
+    
+    /* Soft pastel servo cards */
+    .servo-card-1 .card-header {
+      background-color: #e3f2fd !important;
+      color: #1565c0 !important;
+      font-size: 0.9rem;
+      padding: 0.5rem 0.75rem;
+    }
+    
+    .servo-card-2 .card-header {
+      background-color: #e8f5e9 !important;
+      color: #2e7d32 !important;
+      font-size: 0.9rem;
+      padding: 0.5rem 0.75rem;
+    }
+    
+    .servo-card-3 .card-header {
+      background-color: #fff3e0 !important;
+      color: #e65100 !important;
+      font-size: 0.9rem;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .servo-card-4 .card-header {
+      background-color: #f3e5f5 !important;
+      color: #6a1b9a !important;
+      font-size: 0.9rem;
+      padding: 0.5rem 0.75rem;
+    }
+    
+    .servo-card .card-body {
+      padding: 0.75rem;
+    }
+    
+    .servo-card .form-range {
+      margin: 0.5rem 0;
+    }
+
+    /* Chart container */
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin: 20px 0;
+    }
+
+    /* History table */
+    .history-table {
+      font-size: 0.9rem;
+    }
+
+    .history-table th {
+      background-color: #6c757d;
+      color: white;
+      font-weight: 600;
+      padding: 0.75rem;
+    }
+
+    .history-table td {
+      padding: 0.6rem;
+    }
+
+    [data-bs-theme="dark"] .servo-card-1 .card-header {
+      background-color: #1a237e !important;
+      color: #90caf9 !important;
+    }
+
+    [data-bs-theme="dark"] .servo-card-2 .card-header {
+      background-color: #1b5e20 !important;
+      color: #a5d6a7 !important;
+    }
+
+    [data-bs-theme="dark"] .servo-card-3 .card-header {
+      background-color: #e65100 !important;
+      color: #ffcc80 !important;
+    }
+
+    [data-bs-theme="dark"] .servo-card-4 .card-header {
+      background-color: #4a148c !important;
+      color: #ce93d8 !important;
+    }
+  </style>
+</head>
+
+<body class="bg-body-tertiary">
+  <!-- SVG Icons -->
+  <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
+    <symbol id="check2" viewBox="0 0 16 16">
+      <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z" />
+    </symbol>
+    <symbol id="circle-half" viewBox="0 0 16 16">
+      <path d="M8 15A7 7 0 1 0 8 1v14zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16z" />
+    </symbol>
+    <symbol id="moon-stars-fill" viewBox="0 0 16 16">
+      <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z" />
+      <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z" />
+    </symbol>
+    <symbol id="sun-fill" viewBox="0 0 16 16">
+      <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z" />
+    </symbol>
+    <symbol id="bootstrap" viewBox="0 0 118 94">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M24.509 0c-6.733 0-11.715 5.893-11.492 12.284.214 6.14-.064 14.092-2.066 20.577C8.943 39.365 5.547 43.485 0 44.014v5.972c5.547.529 8.943 4.649 10.951 11.153 2.002 6.485 2.28 14.437 2.066 20.577C12.794 88.106 17.776 94 24.51 94H93.5c6.733 0 11.714-5.893 11.491-12.284-.214-6.14.064-14.092 2.066-20.577 2.009-6.504 5.396-10.624 10.943-11.153v-5.972c-5.547-.529-8.934-4.649-10.943-11.153-2.002-6.484-2.28-14.437-2.066-20.577C105.214 5.894 100.233 0 93.5 0H24.508zM80 57.863C80 66.663 73.436 72 62.543 72H44a2 2 0 01-2-2V24a2 2 0 012-2h18.437c9.083 0 15.044 4.92 15.044 12.474 0 5.302-4.01 10.049-9.119 10.88v.277C75.317 46.394 80 51.21 80 57.863zM60.521 28.34H49.948v14.934h8.905c6.884 0 10.68-2.772 10.68-7.727 0-4.643-3.264-7.207-9.012-7.207zM49.948 49.2v16.458H60.91c7.167 0 10.964-2.876 10.964-8.281 0-5.406-3.903-8.178-11.425-8.178H49.948z"></path>
+    </symbol>
+  </svg>
+
+  <!-- Sidebar -->
+  <aside class="collapse show collapse-horizontal col-sm-2 p-3 border-end bg-body-tertiary" id="collapseWidthExample">
+    <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none">
+      <svg class="bi pe-none me-2" width="40" height="32"><use xlink:href="#bootstrap" /></svg>
+      <span class="d-print-block">ESP32 Control</span>
+    </a>
+    <hr>
+    <ul class="nav nav-pills flex-column mb-auto">
+      <li class="nav-item">
+        <a href="#" class="nav-link link-body-emphasis" id="home-link">
+          <i class="bi bi-house-door"></i> Home
+        </a>
+      </li>
+      <li>
+        <a href="#" class="nav-link active" id="dashboard-link">
+          <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
+      </li>
+      <li>
+        <a href="#" class="nav-link link-body-emphasis" id="motor-control-link">
+          <i class="bi bi-gear-fill"></i> Motor Control
+        </a>
+      </li>
+      <li>
+        <a href="#" class="nav-link link-body-emphasis">
+          <i class="bi bi-table"></i> History
+        </a>
+      </li>
+      <li>
+        <a href="#" class="nav-link link-body-emphasis">
+          <i class="bi bi-graph-up"></i> Analytics
+        </a>
+      </li>
+      <li>
+        <a href="#" class="nav-link link-body-emphasis">
+          <i class="bi bi-gear"></i> Settings
+        </a>
+      </li>
+    </ul>
+    <hr>
+    <ul class="list-unstyled ps-0">
+      <li class="mb-1">
+        <button class="btn btn-toggle d-inline-flex align-items-center rounded border-0 collapsed" data-bs-toggle="collapse" data-bs-target="#home-collapse" aria-expanded="false">
+          Home
+        </button>
+        <div class="collapse" id="home-collapse">
+          <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small">
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Overview</a></li>
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Updates</a></li>
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Reports</a></li>
+          </ul>
+        </div>
+      </li>
+      <li class="mb-1">
+        <button class="btn btn-toggle d-inline-flex align-items-center rounded border-0 collapsed" data-bs-toggle="collapse" data-bs-target="#dashboard-collapse" aria-expanded="false">
+          Dashboard
+        </button>
+        <div class="collapse" id="dashboard-collapse">
+          <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small">
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Overview</a></li>
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Weekly</a></li>
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Monthly</a></li>
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Annually</a></li>
+          </ul>
+        </div>
+      </li>
+      <li class="mb-1">
+        <button class="btn btn-toggle d-inline-flex align-items-center rounded border-0 collapsed" data-bs-toggle="collapse" data-bs-target="#orders-collapse" aria-expanded="false">
+          Motors
+        </button>
+        <div class="collapse" id="orders-collapse">
+          <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small">
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Servo 1</a></li>
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Servo 2</a></li>
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Servo 3</a></li>
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">All Motors</a></li>
+          </ul>
+        </div>
+      </li>
+      <li class="border-top my-3"></li>
+      <li class="mb-1">
+        <button class="btn btn-toggle d-inline-flex align-items-center rounded border-0 collapsed" data-bs-toggle="collapse" data-bs-target="#account-collapse" aria-expanded="false">
+          Account
+        </button>
+        <div class="collapse" id="account-collapse">
+          <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small">
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Profile</a></li>
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Settings</a></li>
+            <li><a href="#" class="link-body-emphasis d-inline-flex text-decoration-none rounded">Sign out</a></li>
+          </ul>
+        </div>
+      </li>
+    </ul>
+    <hr>
+    <div class="dropdown">
+      <a href="#" class="d-flex align-items-center link-body-emphasis text-decoration-none dropdown-toggle" data-bs-toggle="dropdown">
+        <img src="https://github.com/mdo.png" alt="" width="32" height="32" class="rounded-circle me-2">
+        <strong>Admin</strong>
+      </a>
+      <ul class="dropdown-menu text-small shadow">
+        <li><a class="dropdown-item" href="#">New project...</a></li>
+        <li><a class="dropdown-item" href="#">Settings</a></li>
+        <li><a class="dropdown-item" href="#">Profile</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="#">Sign out</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="col-sm-10 bg-body-tertiary" id="main">
+    <nav class="navbar sticky-top navbar-expand-lg border-bottom bg-body-tertiary">
+      <div class="container-fluid">
+        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWidthExample" style="margin-right: 10px; padding: 0px 5px;" id="sidebartoggle" onclick="changeclass()">
+          <i class="bi bi-arrows-expand-vertical"></i>
+        </button>
+        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasExample" style="margin-right: 10px; padding: 2px 6px;" id="sidebarshow">
+          <i class="bi bi-arrow-bar-right"></i>
+        </button>
+        <a class="navbar-brand" href="#">ESP32 Motor Control</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item"><a class="nav-link active" href="#">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="#">Documentation</a></li>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                Tools
+              </a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#">Calibration</a></li>
+                <li><a class="dropdown-item" href="#">Diagnostics</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#">Advanced</a></li>
+              </ul>
+            </li>
+          </ul>
+          <form class="d-flex" role="search">
+            <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
+            <button class="btn btn-outline-success" type="submit">Search</button>
+          </form>
+          <div class="dropdown-center" style="padding-left: 10px;">
+            <button class="btn btn-bd-primary py-2 dropdown-toggle d-flex align-items-center" id="bd-theme" type="button" data-bs-toggle="dropdown">
+              <svg class="bi my-1 theme-icon-active" width="1em" height="1em"><use href="#circle-half"></use></svg>
+              <span class="visually-hidden" id="bd-theme-text">Toggle theme</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow">
+              <li><button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="light"><svg class="bi me-2 opacity-50 theme-icon" width="1em" height="1em"><use href="#sun-fill"></use></svg>Light<svg class="bi ms-auto d-none" width="1em" height="1em"><use href="#check2"></use></svg></button></li>
+              <li><button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="dark"><svg class="bi me-2 opacity-50 theme-icon" width="1em" height="1em"><use href="#moon-stars-fill"></use></svg>Dark<svg class="bi ms-auto d-none" width="1em" height="1em"><use href="#check2"></use></svg></button></li>
+              <li><button type="button" class="dropdown-item d-flex align-items-center active" data-bs-theme-value="auto"><svg class="bi me-2 opacity-50 theme-icon" width="1em" height="1em"><use href="#circle-half"></use></svg>Auto<svg class="bi ms-auto d-none" width="1em" height="1em"><use href="#check2"></use></svg></button></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-fluid">
+      <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2" id="page-title">Dashboard</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+          <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary">Share</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary">Export</button>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary"><i class="bi bi-calendar3"></i> This week</button>
+        </div>
+      </div>
+
+      <!-- DASHBOARD CONTENT -->
+      <div id="dashboard-content">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="#">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page" id="breadcrumb-page">Dashboard Overview</li>
+          </ol>
+        </nav>
+
+        <div class="row my-4">
+          <div class="col-12 col-md-6 col-lg-3 mb-4">
+            <div class="card">
+              <h6 class="card-header">Total Operations</h6>
+              <div class="card-body">
+                <h4 class="card-title">2,847</h4>
+                <p class="card-text text-muted small mb-1">Commands executed today</p>
+                <p class="card-text text-success small mb-0"><i class="bi bi-arrow-up"></i> +12.5% from yesterday</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-lg-3 mb-4">
+            <div class="card">
+              <h6 class="card-header">Active Motors</h6>
+              <div class="card-body">
+                <h4 class="card-title">3 / 3</h4>
+                <p class="card-text text-muted small mb-1">All motors online</p>
+                <p class="card-text text-success small mb-0"><i class="bi bi-check-circle-fill"></i> System OK</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-lg-3 mb-4">
+            <div class="card">
+              <h6 class="card-header">Avg Response</h6>
+              <div class="card-body">
+                <h4 class="card-title">24ms</h4>
+                <p class="card-text text-muted small mb-1">Average last hour</p>
+                <p class="card-text text-warning small mb-0"><i class="bi bi-dash-circle"></i> -2.1% slower</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-lg-3 mb-4">
+            <div class="card">
+              <h6 class="card-header">System Uptime</h6>
+              <div class="card-body">
+                <h4 class="card-title">99.8%</h4>
+                <p class="card-text text-muted small mb-1">Last 30 days</p>
+                <p class="card-text text-success small mb-0"><i class="bi bi-arrow-up"></i> +0.3% better</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-12 col-xl-8 mb-4">
+            <div class="card">
+              <h5 class="card-header">Motor Activity - Last 7 Days</h5>
+              <div class="card-body">
+                <div class="chart-container">
+                  <canvas id="motorActivityChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-xl-4 mb-4">
+            <div class="card">
+              <h5 class="card-header">Recent Events</h5>
+              <div class="card-body">
+                <ul class="list-unstyled">
+                  <li class="mb-2 pb-2 border-bottom">
+                    <div class="d-flex justify-content-between">
+                      <span><i class="bi bi-gear text-primary"></i> Servo 1</span>
+                      <span class="text-muted small">2 min ago</span>
+                    </div>
+                    <small class="text-muted">Position changed to 90°</small>
+                  </li>
+                  <li class="mb-2 pb-2 border-bottom">
+                    <div class="d-flex justify-content-between">
+                      <span><i class="bi bi-gear text-success"></i> Servo 2</span>
+                      <span class="text-muted small">5 min ago</span>
+                    </div>
+                    <small class="text-muted">Position changed to 45°</small>
+                  </li>
+                  <li class="mb-2 pb-2 border-bottom">
+                    <div class="d-flex justify-content-between">
+                      <span><i class="bi bi-gear text-warning"></i> Servo 3</span>
+                      <span class="text-muted small">8 min ago</span>
+                    </div>
+                    <small class="text-muted">Position changed to 180°</small>
+                  </li>
+                  <li class="mb-2 pb-2 border-bottom">
+                    <div class="d-flex justify-content-between">
+                      <span><i class="bi bi-check-circle text-success"></i> System</span>
+                      <span class="text-muted small">15 min ago</span>
+                    </div>
+                    <small class="text-muted">All motors initialized</small>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-12">
+            <div class="card">
+              <h5 class="card-header">Command History</h5>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-hover history-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Timestamp</th>
+                        <th scope="col">Motor ID</th>
+                        <th scope="col">Command</th>
+                        <th scope="col">Angle</th>
+                        <th scope="col">Duration (s)</th>
+                        <th scope="col">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>2025-01-05 14:23:45</td>
+                        <td>Servo 1</td>
+                        <td>SET_ANGLE</td>
+                        <td>90°</td>
+                        <td>1.2</td>
+                        <td><span class="badge bg-success">Success</span></td>
+                      </tr>
+                      <tr>
+                        <td>2025-01-05 14:20:12</td>
+                        <td>Servo 2</td>
+                        <td>SET_ANGLE</td>
+                        <td>45°</td>
+                        <td>0.8</td>
+                        <td><span class="badge bg-success">Success</span></td>
+                      </tr>
+                      <tr>
+                        <td>2025-01-05 14:18:33</td>
+                        <td>Servo 3</td>
+                        <td>SET_ANGLE</td>
+                        <td>180°</td>
+                        <td>2.1</td>
+                        <td><span class="badge bg-success">Success</span></td>
+                      </tr>
+                      <tr>
+                        <td>2025-01-05 14:15:08</td>
+                        <td>Servo 1</td>
+                        <td>SET_ANGLE</td>
+                        <td>0°</td>
+                        <td>1.1</td>
+                        <td><span class="badge bg-success">Success</span></td>
+                      </tr>
+                      <tr>
+                        <td>2025-01-05 14:12:55</td>
+                        <td>All Servos</td>
+                        <td>SWEEP_TEST</td>
+                        <td>0-180°</td>
+                        <td>12.5</td>
+                        <td><span class="badge bg-success">Success</span></td>
+                      </tr>
+                      <tr>
+                        <td>2025-01-05 14:10:33</td>
+                        <td>Servo 2</td>
+                        <td>SET_ANGLE</td>
+                        <td>120°</td>
+                        <td>1.4</td>
+                        <td><span class="badge bg-warning">Retry</span></td>
+                      </tr>
+                      <tr>
+                        <td>2025-01-05 14:08:18</td>
+                        <td>Servo 3</td>
+                        <td>SET_ANGLE</td>
+                        <td>60°</td>
+                        <td>0.9</td>
+                        <td><span class="badge bg-success">Success</span></td>
+                      </tr>
+                      <tr>
+                        <td>2025-01-05 14:05:42</td>
+                        <td>System</td>
+                        <td>INIT</td>
+                        <td>-</td>
+                        <td>3.2</td>
+                        <td><span class="badge bg-success">Success</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="mt-3">
+                  <button class="btn btn-sm btn-primary">Load More</button>
+                  <button class="btn btn-sm btn-outline-secondary">Export CSV</button>
+                  <button class="btn btn-sm btn-outline-secondary">Clear History</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MOTOR CONTROL CONTENT -->
+      <div id="motor-control-content" style="display: none;">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="#">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Motor Control</li>
+          </ol>
+        </nav>
+
+        <div class="alert alert-info mb-4">
+          <i class="bi bi-info-circle"></i> <strong>Motor Control Panel</strong> - Use sliders or input exact angles. Click preset buttons for quick positioning.
+        </div>
+
+        <div class="row my-4">
+          <!-- Servo 1 -->
+          <div class="col-12 col-md-6 col-lg-3 mb-4 servo-card servo-card-1">
+            <div class="card h-100">
+              <h6 class="card-header"><i class="bi bi-gear-fill"></i> Servo Motor 1</h6>
+              <div class="card-body">
+                <div class="mb-2">
+                  <label class="form-label small">Current Angle: <strong><span id="angle1-display">90</span>°</strong></label>
+                  <input type="range" class="form-range" id="servo1-slider" min="0" max="180" value="90">
+                  <div class="d-flex justify-content-between">
+                    <small class="text-muted">0°</small>
+                    <small class="text-muted">90°</small>
+                    <small class="text-muted">180°</small>
+                  </div>
+                </div>
+                <div class="input-group input-group-sm mb-2">
+                  <input type="number" class="form-control" id="servo1-input" min="0" max="180" value="90" placeholder="0-180">
+                  <button class="btn btn-outline-primary btn-sm" onclick="setServoFromInput(1)"><i class="bi bi-check-lg"></i> Set</button>
+                </div>
+                <div class="d-grid gap-1">
+                  <button class="btn btn-sm btn-outline-secondary" onclick="setServo(1, 0)">Min (0°)</button>
+                  <button class="btn btn-sm btn-outline-secondary" onclick="setServo(1, 90)">Center (90°)</button>
+                  <button class="btn btn-sm btn-outline-secondary" onclick="setServo(1, 180)">Max (180°)</button>
+                </div>
+                <hr>
+                <div class="mt-2">
+                  <small>Status: <span id="status1" class="badge bg-secondary">Ready</span></small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Servo 2 -->
+          <div class="col-12 col-md-6 col-lg-3 mb-4 servo-card servo-card-2">
+            <div class="card h-100">
+              <h6 class="card-header"><i class="bi bi-gear-fill"></i> Servo Motor 2</h6>
+              <div class="card-body">
+                <div class="mb-2">
+                  <label class="form-label small">Current Angle: <strong><span id="angle2-display">90</span>°</strong></label>
+                  <input type="range" class="form-range" id="servo2-slider" min="0" max="180" value="90">
+                  <div class="d-flex justify-content-between">
+                    <small class="text-muted">0°</small>
+                    <small class="text-muted">90°</small>
+                    <small class="text-muted">180°</small>
+                  </div>
+                </div>
+                <div class="input-group input-group-sm mb-2">
+                  <input type="number" class="form-control" id="servo2-input" min="0" max="180" value="90" placeholder="0-180">
+                  <button class="btn btn-outline-success btn-sm" onclick="setServoFromInput(2)"><i class="bi bi-check-lg"></i> Set</button>
+                </div>
+                <div class="d-grid gap-1">
+                  <button class="btn btn-sm btn-outline-secondary" onclick="setServo(2, 0)">Min (0°)</button>
+                  <button class="btn btn-sm btn-outline-secondary" onclick="setServo(2, 90)">Center (90°)</button>
+                  <button class="btn btn-sm btn-outline-secondary" onclick="setServo(2, 180)">Max (180°)</button>
+                </div>
+                <hr>
+                <div class="mt-2">
+                  <small>Status: <span id="status2" class="badge bg-secondary">Ready</span></small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Servo 3 -->
+          <div class="col-12 col-md-6 col-lg-3 mb-4 servo-card servo-card-3">
+            <div class="card h-100">
+              <h6 class="card-header"><i class="bi bi-gear-fill"></i> Servo Motor 3</h6>
+              <div class="card-body">
+                <div class="mb-2">
+                  <label class="form-label small">Current Angle: <strong><span id="angle3-display">90</span>°</strong></label>
+                  <input type="range" class="form-range" id="servo3-slider" min="0" max="180" value="90">
+                  <div class="d-flex justify-content-between">
+                    <small class="text-muted">0°</small>
+                    <small class="text-muted">90°</small>
+                    <small class="text-muted">180°</small>
+                  </div>
+                </div>
+                <div class="input-group input-group-sm mb-2">
+                  <input type="number" class="form-control" id="servo3-input" min="0" max="180" value="90" placeholder="0-180">
+                  <button class="btn btn-outline-warning btn-sm" onclick="setServoFromInput(3)"><i class="bi bi-check-lg"></i> Set</button>
+                </div>
+                <div class="d-grid gap-1">
+                  <button class="btn btn-sm btn-outline-secondary" onclick="setServo(3, 0)">Min (0°)</button>
+                  <button class="btn btn-sm btn-outline-secondary" onclick="setServo(3, 90)">Center (90°)</button>
+                  <button class="btn btn-sm btn-outline-secondary" onclick="setServo(3, 180)">Max (180°)</button>
+                </div>
+                <hr>
+                <div class="mt-2">
+                  <small>Status: <span id="status3" class="badge bg-secondary">Ready</span></small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="col-12 col-md-6 col-lg-3 mb-4 servo-card servo-card-4">
+            <div class="card h-100">
+              <h6 class="card-header"><i class="bi bi-sliders"></i> Quick Actions</h6>
+              <div class="card-body">
+                <div class="d-grid gap-2">
+                  <button class="btn btn-sm btn-primary" onclick="setAllServos(0)">
+                    <i class="bi bi-chevron-bar-left"></i> All to 0°
+                  </button>
+                  <button class="btn btn-sm btn-success" onclick="setAllServos(90)">
+                    <i class="bi bi-chevron-bar-contract"></i> All to 90°
+                  </button>
+                  <button class="btn btn-sm btn-warning" onclick="setAllServos(180)">
+                    <i class="bi bi-chevron-bar-right"></i> All to 180°
+                  </button>
+                  <button class="btn btn-sm btn-info" onclick="sweepAllServos()">
+                    <i class="bi bi-arrow-repeat"></i> Sweep Test
+                  </button>
+                  <button class="btn btn-sm btn-danger" onclick="emergencyStop()">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Emergency Stop
+                  </button>
+                </div>
+                <hr>
+                <div class="alert alert-warning p-2 mb-0 small">
+                  <i class="bi bi-exclamation-circle"></i> Use Emergency Stop for immediate halt
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Status Panel -->
+        <div class="row my-4">
+          <div class="col-12">
+            <div class="card">
+              <h5 class="card-header"><i class="bi bi-speedometer"></i> System Status</h5>
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-3 mb-3 mb-md-0">
+                    <div class="border-end pe-3">
+                      <h6 class="text-muted small mb-1">Connection Status</h6>
+                      <h5 class="mb-0"><span class="badge bg-success">Connected</span></h5>
+                      <small class="text-muted">ESP32 Online</small>
+                    </div>
+                  </div>
+                  <div class="col-md-3 mb-3 mb-md-0">
+                    <div class="border-end pe-3">
+                      <h6 class="text-muted small mb-1">Last Update</h6>
+                      <h5 class="mb-0"><span id="last-update">--:--:--</span></h5>
+                      <small class="text-muted">Time of last command</small>
+                    </div>
+                  </div>
+                  <div class="col-md-3 mb-3 mb-md-0">
+                    <div class="border-end pe-3">
+                      <h6 class="text-muted small mb-1">Commands Sent</h6>
+                      <h5 class="mb-0"><span id="cmd-count">0</span></h5>
+                      <small class="text-muted">This session</small>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <div>
+                      <h6 class="text-muted small mb-1">Session Uptime</h6>
+                      <h5 class="mb-0"><span id="uptime">00:00:00</span></h5>
+                      <small class="text-muted">Hours:Minutes:Seconds</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Offcanvas menu for mobile -->
+  <div class="offcanvas offcanvas-start" data-bs-scroll="true" tabindex="-1" id="offcanvasExample" aria-labelledby="offcanvasExampleLabel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="offcanvasExampleLabel">Menu</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none">
+        <svg class="bi pe-none me-2" width="40" height="32"><use xlink:href="#bootstrap" /></svg>
+        <span class="d-print-block">ESP32 Control</span>
+      </a>
+      <hr>
+      <ul class="nav nav-pills flex-column mb-auto">
+        <li class="nav-item">
+          <a href="#" class="nav-link link-body-emphasis">
+            <i class="bi bi-house-door"></i> Home
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link link-body-emphasis">
+            <i class="bi bi-speedometer2"></i> Dashboard
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link link-body-emphasis">
+            <i class="bi bi-gear-fill"></i> Motor Control
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link link-body-emphasis">
+            <i class="bi bi-table"></i> History
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link link-body-emphasis">
+            <i class="bi bi-graph-up"></i> Analytics
+          </a>
+        </li>
+      </ul>
+    </div>
   </div>
 
-  <!-- Option 2: Control RGB LED -->
-  <div>
-    <h2>Control RGB LED on Slave 1</h2>
-    <button onclick="setColor('slave1', 'red')">Red</button>
-    <button onclick="setColor('slave1', 'green')">Green</button>
-    <button onclick="setColor('slave1', 'blue')">Blue</button>
-    <button onclick="setColor('slave1', 'off')">Off</button>
-  </div>
+  <script src="lib/bootstrap/bootstrap.bundle.min.js"></script>
+  
+  <!-- Dashboard script - GIỮ LẠI ĐỂ SAU NÀY SỬ DỤNG -->
+  <script src="dashboard.js"></script>
+  
+  <script>
+    // ==================== GLOBAL VARIABLES ====================
+    let commandCount = 0;
+    let startTime = Date.now();
 
-  <div>
-    <h2>Control RGB LED on Slave 2</h2>
-    <button onclick="setColor('slave2', 'red')">Red</button>
-    <button onclick="setColor('slave2', 'green')">Green</button>
-    <button onclick="setColor('slave2', 'blue')">Blue</button>
-    <button onclick="setColor('slave2', 'off')">Off</button>
-  </div>
+    // ==================== PAGE NAVIGATION ====================
+    function switchTab(tab) {
+      const dash = document.getElementById('dashboard-content');
+      const motor = document.getElementById('motor-control-content');
+      const title = document.getElementById('page-title');
+      const breadcrumb = document.getElementById('breadcrumb-page');
+      
+      // Remove active from all nav links
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+      
+      if (tab === 'motor') {
+        dash.style.display = 'none';
+        motor.style.display = 'block';
+        title.textContent = 'Motor Control';
+        if (breadcrumb) breadcrumb.textContent = 'Motor Control';
+        document.getElementById('motor-control-link').classList.add('active');
+      } else {
+        dash.style.display = 'block';
+        motor.style.display = 'none';
+        title.textContent = 'Dashboard';
+        if (breadcrumb) breadcrumb.textContent = 'Dashboard Overview';
+        document.getElementById('dashboard-link').classList.add('active');
+      }
+    }
 
-  <!-- Log Area -->
-  <div>
-    <h2>Log</h2>
-    <pre id="log"></pre>
-  </div>
-    <script src="script.js"></script> 
+    document.addEventListener('DOMContentLoaded', function() {
+      // Navigation listeners
+      document.getElementById('dashboard-link').addEventListener('click', e => { 
+        e.preventDefault(); 
+        switchTab('dash'); 
+      });
+      
+      document.getElementById('motor-control-link').addEventListener('click', e => { 
+        e.preventDefault(); 
+        switchTab('motor'); 
+      });
+
+      document.getElementById('home-link').addEventListener('click', e => { 
+        e.preventDefault(); 
+        switchTab('dash'); 
+      });
+      
+      // Initialize
+      initServoSliders();
+      initDashboardChart();
+      setInterval(updateSystemInfo, 1000);
+    });
+
+    // ==================== DASHBOARD CHART ====================
+    function initDashboardChart() {
+      const ctx = document.getElementById('motorActivityChart');
+      if (ctx && typeof Chart !== 'undefined') {
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [
+              {
+                label: 'Servo 1',
+                data: [234, 289, 312, 278, 345, 298, 321],
+                borderColor: '#1565c0',
+                backgroundColor: 'rgba(21, 101, 192, 0.1)',
+                tension: 0.4
+              },
+              {
+                label: 'Servo 2',
+                data: [198, 256, 287, 234, 298, 312, 289],
+                borderColor: '#2e7d32',
+                backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                tension: 0.4
+              },
+              {
+                label: 'Servo 3',
+                data: [212, 267, 298, 256, 321, 289, 304],
+                borderColor: '#e65100',
+                backgroundColor: 'rgba(230, 81, 0, 0.1)',
+                tension: 0.4
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top'
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Commands Executed'
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // ==================== SERVO CONTROL ====================
+    function initServoSliders() {
+      for (let i = 1; i <= 3; i++) {
+        const slider = document.getElementById(`servo${i}-slider`);
+        const input = document.getElementById(`servo${i}-input`);
+        const display = document.getElementById(`angle${i}-display`);
+        
+        if (slider) {
+          slider.addEventListener('input', function() {
+            display.textContent = this.value;
+            input.value = this.value;
+          });
+          
+          slider.addEventListener('change', function() {
+            setServo(i, this.value);
+          });
+        }
+      }
+    }
+
+    function setServoFromInput(num) {
+      const input = document.getElementById(`servo${num}-input`);
+      const slider = document.getElementById(`servo${num}-slider`);
+      const display = document.getElementById(`angle${num}-display`);
+      
+      let angle = parseInt(input.value);
+      if (isNaN(angle) || angle < 0 || angle > 180) {
+        updateStatus(num, 'Invalid!', 'danger');
+        return;
+      }
+      
+      slider.value = angle;
+      display.textContent = angle;
+      setServo(num, angle);
+    }
+
+    async function setServo(num, angle) {
+      try {
+        updateStatus(num, 'Sending...', 'warning');
+        
+        const res = await fetch(`/servo?num=${num}&angle=${angle}`);
+        const txt = await res.text();
+        
+        if (res.ok && txt === 'OK') {
+          updateStatus(num, `OK (${angle}°)`, 'success');
+          commandCount++;
+          
+          setTimeout(() => updateStatus(num, 'Ready', 'secondary'), 2000);
+        } else {
+          updateStatus(num, 'Failed!', 'danger');
+        }
+      } catch (e) {
+        console.error('Servo error:', e);
+        updateStatus(num, 'Error!', 'danger');
+      }
+    }
+
+    function updateStatus(num, text, type) {
+      const status = document.getElementById(`status${num}`);
+      if (status) {
+        status.textContent = text;
+        status.className = `badge bg-${type}`;
+      }
+    }
+
+    async function setAllServos(angle) {
+      console.log(`Setting all servos to ${angle}°`);
+      
+      for (let i = 1; i <= 3; i++) {
+        const slider = document.getElementById(`servo${i}-slider`);
+        const input = document.getElementById(`servo${i}-input`);
+        const display = document.getElementById(`angle${i}-display`);
+        
+        if (slider && input && display) {
+          slider.value = angle;
+          input.value = angle;
+          display.textContent = angle;
+        }
+        
+        await setServo(i, angle);
+        await new Promise(r => setTimeout(r, 100));
+      }
+    }
+
+    async function sweepAllServos() {
+      console.log('Starting sweep test...');
+      const angles = [0, 45, 90, 135, 180, 135, 90, 45, 0, 90];
+      
+      for (const angle of angles) {
+        await setAllServos(angle);
+        await new Promise(r => setTimeout(r, 500));
+      }
+      
+      console.log('Sweep test completed');
+    }
+
+    function emergencyStop() {
+      console.log('EMERGENCY STOP ACTIVATED!');
+      
+      // Stop all motors immediately
+      for (let i = 1; i <= 3; i++) {
+        updateStatus(i, 'STOPPED', 'danger');
+      }
+      
+      // Send stop command to server
+      fetch('/emergency-stop')
+        .then(response => response.text())
+        .then(result => {
+          console.log('Emergency stop result:', result);
+          alert('⚠️ Emergency Stop Activated!\nAll motors stopped immediately.');
+        })
+        .catch(error => {
+          console.error('Emergency stop error:', error);
+          alert('⚠️ Emergency Stop Failed!\nCheck connection.');
+        });
+    }
+
+    // ==================== SYSTEM INFO ====================
+    function updateSystemInfo() {
+      // Update timestamp
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString();
+      const lastUpdateElem = document.getElementById('last-update');
+      if (lastUpdateElem) {
+        lastUpdateElem.textContent = timeStr;
+      }
+      
+      // Update command count
+      const cmdCountElem = document.getElementById('cmd-count');
+      if (cmdCountElem) {
+        cmdCountElem.textContent = commandCount;
+      }
+      
+      // Update uptime
+      const uptimeElem = document.getElementById('uptime');
+      if (uptimeElem) {
+        const elapsed = Date.now() - startTime;
+        const hours = Math.floor(elapsed / 3600000);
+        const minutes = Math.floor((elapsed % 3600000) / 60000);
+        const seconds = Math.floor((elapsed % 60000) / 1000);
+        uptimeElem.textContent = 
+          String(hours).padStart(2, '0') + ':' +
+          String(minutes).padStart(2, '0') + ':' +
+          String(seconds).padStart(2, '0');
+      }
+    }
+
+    // ==================== SIDEBAR TOGGLE ====================
+    function changeclass() {
+      const main = document.getElementById('main');
+      main.classList.toggle('col-sm-10');
+      main.classList.toggle('col-sm-12');
+    }
+  </script>
 </body>
 </html>
